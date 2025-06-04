@@ -2,6 +2,8 @@ package main
 
 import (
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/cpu"
@@ -30,5 +32,26 @@ func main() {
 		})
 	})
 
+	r.GET("/fib", func(c *gin.Context) {
+		n_str := c.Query("n")
+		n, _ := strconv.Atoi(n_str)
+
+		start := time.Now()
+		answer := fibonacci(n)
+		elapsed := time.Since(start)
+
+		c.JSON(http.StatusOK, gin.H{
+			"fibonacci-" + n_str: answer,
+			"timeTaken":          elapsed.String(),
+		})
+	})
+
 	r.Run(":8000")
+}
+
+func fibonacci(n int) int {
+	if n <= 1 {
+		return n
+	}
+	return fibonacci(n-1) + fibonacci(n-2)
 }
