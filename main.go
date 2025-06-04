@@ -24,9 +24,21 @@ func main() {
 			"used":        memInfo.Used,
 			"usedPercent": memInfo.UsedPercent,
 		}
+		cpuFilteredInfo := gin.H{}
+		if len(cpuInfo) > 0 {
+			cpuFilteredInfo = gin.H{
+				"vendorId":  cpuInfo[0].VendorID,
+				"family":    cpuInfo[0].Family,
+				"model":     cpuInfo[0].Model,
+				"modelName": cpuInfo[0].ModelName,
+				"cores":     cpuInfo[0].Cores,
+				"mhz":       cpuInfo[0].Mhz,
+				"cacheSize": cpuInfo[0].CacheSize,
+			}
+		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"cpu":  cpuInfo,
+			"cpu":  cpuFilteredInfo,
 			"mem":  memFilteredInfo,
 			"host": hostInfo,
 		})
