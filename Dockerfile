@@ -21,6 +21,6 @@ FROM alpine:latest
 WORKDIR /app
 COPY --from=build /app/go-gin .
 
-USER user
+USER guest
 
 CMD ["./go-gin"]
