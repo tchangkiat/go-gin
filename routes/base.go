@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"bufio"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -15,6 +17,7 @@ func Base(router *gin.Engine) {
 	base := router.Group("/")
 	{
 		base.GET("/fib", fibonacci)
+		base.GET("/req", proxy_request)
 		base.GET("/", getSysInfo)
 	}
 }
@@ -82,4 +85,33 @@ func fib(n int) int {
 		return n
 	}
 	return fib(n-1) + fib(n-2)
+}
+
+func proxy_request(c *gin.Context) {
+	protocol := c.Query("protocol")
+	if protocol == "" {
+		protocol = "http"
+	}
+	hostname := c.Query("hostname")
+	if hostname == "" {
+		hostname = "localhost"
+	}
+	port := c.Query("port")
+	if port == "" {
+		port = "8000"
+	}
+	path := c.Query("path")
+	if path == "" {
+		path = "/"
+	}
+	url := protocol + "://" + hostname + ":" + port + path
+	resp, _ := http.Get(url)
+	defer resp.Body.Close()
+	scanner := bufio.NewScanner(resp.Body)
+	var jsonResp map[string]interface{}
+
+	for i := 0; scanner.Scan() && i < 5; i++ {
+		json.Unmarshal([]byte(scanner.Text()), &jsonResp)
+	}
+	c.JSON(http.StatusOK, gin.H{"url": url, "response": jsonResp})
 }
