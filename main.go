@@ -50,13 +50,13 @@ func main() {
 		hostInfo, _ := host.Info()
 
 		start := time.Now()
-		answer := fibonacci(n)
+		fib_result := fibonacci(n)
 		elapsed := time.Since(start)
 
 		c.JSON(http.StatusOK, gin.H{
-			"kernelArch":         hostInfo.KernelArch,
-			"fibonacci-" + n_str: answer,
-			"timeTaken":          elapsed.String(),
+			"architecture": hostInfo.KernelArch,
+			"fibonacci":    gin.H{"n": n_str, "result": fib_result},
+			"timeTaken":    elapsed.String(),
 		})
 	})
 
