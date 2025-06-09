@@ -47,12 +47,14 @@ func main() {
 	r.GET("/fib", func(c *gin.Context) {
 		n_str := c.Query("n")
 		n, _ := strconv.Atoi(n_str)
+		hostInfo, _ := host.Info()
 
 		start := time.Now()
 		answer := fibonacci(n)
 		elapsed := time.Since(start)
 
 		c.JSON(http.StatusOK, gin.H{
+			"kernelArch":         hostInfo.KernelArch,
 			"fibonacci-" + n_str: answer,
 			"timeTaken":          elapsed.String(),
 		})
