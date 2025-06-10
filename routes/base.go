@@ -22,6 +22,7 @@ func Base(router *gin.Engine) {
 	}
 }
 
+// Get system information
 func getSysInfo(c *gin.Context) {
 	cpuInfo, _ := cpu.Info()
 	memInfo, _ := mem.VirtualMemory()
@@ -34,36 +35,34 @@ func getSysInfo(c *gin.Context) {
 		"usedPercent": memInfo.UsedPercent,
 	}
 
-	cpuFilteredInfo := make([]gin.H, len(cpuInfo))
-	for _, cpu := range cpuInfo {
-		cpuFilteredInfo = append(cpuFilteredInfo, gin.H{
-			"vendorId":  cpu.VendorID,
-			"family":    cpu.Family,
-			"model":     cpu.Model,
-			"modelName": cpu.ModelName,
-			"cores":     cpu.Cores,
-			"mhz":       cpu.Mhz,
-			"cacheSize": cpu.CacheSize,
-		})
+	cpuFilteredInfo := make([]gin.H, 0, len(cpuInfo))
+	for _, cpuStat := range cpuInfo {
+		// Append CPU info only if any of the fields are non-empty
+		if cpuStat.VendorID != "" || cpuStat.ModelName != "" {
+			cpuFilteredInfo = append(cpuFilteredInfo, gin.H{
+				"vendorId": cpuStat.VendorID,
+				"model":    cpuStat.ModelName,
+			})
+		}
 	}
 
 	hostFilteredInfo := gin.H{
 		"hostname":        hostInfo.Hostname,
 		"os":              hostInfo.OS,
 		"platform":        hostInfo.Platform,
-		"platformFamily":  hostInfo.PlatformFamily,
 		"platformVersion": hostInfo.PlatformVersion,
 		"kernelVersion":   hostInfo.KernelVersion,
 		"kernelArch":      hostInfo.KernelArch,
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"cpu":  cpuFilteredInfo,
-		"mem":  memFilteredInfo,
-		"host": hostFilteredInfo,
+		"cpu":    cpuFilteredInfo,
+		"memory": memFilteredInfo,
+		"host":   hostFilteredInfo,
 	})
 }
 
+// Fibonacci sequence without memoization
 func fibonacci(c *gin.Context) {
 	n_str := c.Query("n")
 	n, _ := strconv.Atoi(n_str)
@@ -80,6 +79,7 @@ func fibonacci(c *gin.Context) {
 	})
 }
 
+// Helper function for Fibonacci sequence
 func fib(n int) int {
 	if n <= 1 {
 		return n
@@ -87,14 +87,15 @@ func fib(n int) int {
 	return fib(n-1) + fib(n-2)
 }
 
+// Proxy request to a URL
 func proxy_request(c *gin.Context) {
 	protocol := c.Query("protocol")
 	if protocol == "" {
 		protocol = "http"
 	}
-	hostname := c.Query("hostname")
-	if hostname == "" {
-		hostname = "localhost"
+	host := c.Query("host")
+	if host == "" {
+		host = "localhost"
 	}
 	port := c.Query("port")
 	if port == "" {
