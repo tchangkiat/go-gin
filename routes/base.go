@@ -3,6 +3,7 @@ package routes
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -51,16 +52,15 @@ func getSysInfo(c *gin.Context) {
 	}
 
 	memFilteredInfo := gin.H{
-		"total":       memInfo.Total,
-		"available":   memInfo.Available,
-		"used":        memInfo.Used,
-		"usedPercent": memInfo.UsedPercent,
+		"totalInGb":   fmt.Sprintf("%.2f", float64(memInfo.Total)/1000000000),
+		"usedInGb":    fmt.Sprintf("%.2f", float64(memInfo.Used)/1000000000),
+		"usedPercent": fmt.Sprintf("%.2f", memInfo.UsedPercent),
 	}
 
 	netInterfaceFilteredInfo := make([]gin.H, 0, len(netInterfaceInfo))
 	for _, netInterface := range netInterfaceInfo {
-		// Append network interface info only if there are IPv4 / IPv6 addresses
-		if len(netInterface.Addrs) > 0 {
+		// Append network interface info only if there are IPv4 / IPv6 addresses and the IP addresses are not internal host loopback address ranges
+		if len(netInterface.Addrs) > 0 && netInterface.Addrs[0].Addr != "127.0.0.1/8" {
 			netInterfaceFilteredInfo = append(netInterfaceFilteredInfo, gin.H{
 				"name":  netInterface.Name,
 				"addrs": netInterface.Addrs,
