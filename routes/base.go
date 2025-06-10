@@ -11,6 +11,7 @@ import (
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/host"
 	"github.com/shirou/gopsutil/v4/mem"
+	"github.com/shirou/gopsutil/v4/net"
 )
 
 func Base(router *gin.Engine) {
@@ -24,15 +25,18 @@ func Base(router *gin.Engine) {
 
 // Get system information
 func getSysInfo(c *gin.Context) {
+	hostInfo, _ := host.Info()
 	cpuInfo, _ := cpu.Info()
 	memInfo, _ := mem.VirtualMemory()
-	hostInfo, _ := host.Info()
+	netInterfaceInfo, _ := net.Interfaces()
 
-	memFilteredInfo := gin.H{
-		"total":       memInfo.Total,
-		"available":   memInfo.Available,
-		"used":        memInfo.Used,
-		"usedPercent": memInfo.UsedPercent,
+	hostFilteredInfo := gin.H{
+		"hostname":        hostInfo.Hostname,
+		"os":              hostInfo.OS,
+		"platform":        hostInfo.Platform,
+		"platformVersion": hostInfo.PlatformVersion,
+		"kernelVersion":   hostInfo.KernelVersion,
+		"kernelArch":      hostInfo.KernelArch,
 	}
 
 	cpuFilteredInfo := make([]gin.H, 0, len(cpuInfo))
@@ -46,19 +50,30 @@ func getSysInfo(c *gin.Context) {
 		}
 	}
 
-	hostFilteredInfo := gin.H{
-		"hostname":        hostInfo.Hostname,
-		"os":              hostInfo.OS,
-		"platform":        hostInfo.Platform,
-		"platformVersion": hostInfo.PlatformVersion,
-		"kernelVersion":   hostInfo.KernelVersion,
-		"kernelArch":      hostInfo.KernelArch,
+	memFilteredInfo := gin.H{
+		"total":       memInfo.Total,
+		"available":   memInfo.Available,
+		"used":        memInfo.Used,
+		"usedPercent": memInfo.UsedPercent,
+	}
+
+	netInterfaceFilteredInfo := make([]gin.H, 0, len(netInterfaceInfo))
+	for _, netInterface := range netInterfaceInfo {
+		// Append network interface info only if there are IPv4 / IPv6 addresses
+		if len(netInterface.Addrs) > 0 {
+			netInterfaceFilteredInfo = append(netInterfaceFilteredInfo, gin.H{
+				"name":  netInterface.Name,
+				"addrs": netInterface.Addrs,
+				"mtu":   netInterface.MTU,
+			})
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"cpu":    cpuFilteredInfo,
-		"memory": memFilteredInfo,
-		"host":   hostFilteredInfo,
+		"host":    hostFilteredInfo,
+		"cpu":     cpuFilteredInfo,
+		"memory":  memFilteredInfo,
+		"network": netInterfaceFilteredInfo,
 	})
 }
 
@@ -105,7 +120,7 @@ func proxy_request(c *gin.Context) {
 	if path == "" {
 		path = "/"
 	}
-	url := protocol + "://" + hostname + ":" + port + path
+	url := protocol + "://" + host + ":" + port + path
 	resp, _ := http.Get(url)
 	defer resp.Body.Close()
 	scanner := bufio.NewScanner(resp.Body)
