@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,12 +17,31 @@ import (
 	"github.com/shirou/gopsutil/v4/net"
 )
 
+type PathHandler struct {
+	Path    string
+	Handler gin.HandlerFunc
+}
+
 func Base(router *gin.Engine) {
 	base := router.Group("/")
 	{
-		base.GET("/fib", fibonacci)
-		base.GET("/req", proxy_request)
-		base.GET("/", getSysInfo)
+		pathHandlers := []PathHandler{
+			{Path: "/fib", Handler: fibonacci},
+			{Path: "/req", Handler: proxy_request},
+			{Path: "/", Handler: getSysInfo},
+		}
+
+		pathPrefixes := strings.Split(os.Getenv("PATH_PREFIXES"), `,`)
+		// Loop throught pathHandlers and add them to the base group
+		for _, pathHandler := range pathHandlers {
+			base.GET(pathHandler.Path, pathHandler.Handler)
+			// Add paths with prefixes. Use case: handle traffic from multiple load balancer paths but routing to the same service
+			if len(pathPrefixes) > 0 {
+				for _, pathPrefix := range pathPrefixes {
+					base.GET(pathPrefix+pathHandler.Path, pathHandler.Handler)
+				}
+			}
+		}
 	}
 }
 
