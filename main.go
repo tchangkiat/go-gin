@@ -20,7 +20,7 @@ func main() {
 
 	// conditionally load plugin
 	if os.Getenv("TRACING") == "true" {
-		if os.Getenv("ENVIRONMENT") == "production" {
+		if os.Getenv("GIN_MODE") == "release" {
 			ec2.Init()
 		}
 
