@@ -18,6 +18,8 @@ RUN go build -o /app/go-gin
 ############################
 FROM alpine:latest
 
+ENV GIN_MODE=release
+
 WORKDIR /app
 COPY --from=build /app/go-gin .
 
