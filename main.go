@@ -23,7 +23,12 @@ func main() {
 		ec2.Init()
 	}
 
+	xrayDaemonAddr := "127.0.0.1:2000"
+	if os.Getenv("AWS_XRAY_DAEMON_ADDRESS") != "" {
+		xrayDaemonAddr = os.Getenv("AWS_XRAY_DAEMON_ADDRESS")
+	}
 	xray.Configure(xray.Config{
+		DaemonAddr:     xrayDaemonAddr,
 		ServiceVersion: "1.2.3",
 	})
 
