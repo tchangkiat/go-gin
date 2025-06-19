@@ -52,7 +52,8 @@ func handleTracingAndError(c *gin.Context) {
 			segmentName = "go-gin-" + os.Getenv("AWS_XRAY_SEGMENT_NAME_SUFFIX")
 		}
 		// Create a segment for tracing in AWS X-Ray
-		_, seg := xray.BeginSegment(context.Background(), segmentName)
+		xrayCtx, seg := xray.BeginSegment(context.Background(), segmentName)
+		c.Set("xray-context", xrayCtx)
 		c.Next()
 		// Close the segment after processing the request
 		seg.Close(nil)

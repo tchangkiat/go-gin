@@ -2,6 +2,7 @@ package routes
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,11 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/host"
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/net"
+	"golang.org/x/net/context/ctxhttp"
 )
 
 type PathHandler struct {
@@ -136,7 +139,19 @@ func proxyRequest(c *gin.Context) {
 		path = "/"
 	}
 	url := protocol + "://" + host + ":" + port + path
-	resp, _ := http.Get(url)
+	resp := &http.Response{}
+	if os.Getenv("AWS_XRAY_SDK_DISABLED") == "FALSE" {
+		// -----------------------------
+		// AWS X-Ray
+		// -----------------------------
+		ctx, _ := c.Get("xray-context")
+		xrayCtx := ctx.(context.Context)
+		_, subSeg := xray.BeginSubsegment(xrayCtx, "proxy-request")
+		resp, _ = ctxhttp.Get(xrayCtx, xray.Client(nil), url)
+		subSeg.Close(nil)
+	} else {
+		resp, _ = http.Get(url)
+	}
 	defer resp.Body.Close()
 	scanner := bufio.NewScanner(resp.Body)
 	var jsonResp map[string]interface{}
