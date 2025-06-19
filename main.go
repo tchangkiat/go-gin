@@ -1,7 +1,6 @@
 package main
 
 import (
-	//"context"
 	"context"
 	"log"
 	"net/http"
@@ -20,19 +19,21 @@ func main() {
 	// AWS X-Ray
 	// -----------------------------
 
-	// conditionally load plugin
-	if os.Getenv("GIN_MODE") == "release" {
-		ec2.Init()
-	}
+	if os.Getenv("AWS_XRAY_SDK_DISABLED") == "FALSE" {
+		// Conditionally load plugin
+		if os.Getenv("GIN_MODE") == "release" {
+			ec2.Init()
+		}
 
-	xrayDaemonAddr := "127.0.0.1:2000"
-	if os.Getenv("AWS_XRAY_DAEMON_ADDRESS") != "" {
-		xrayDaemonAddr = os.Getenv("AWS_XRAY_DAEMON_ADDRESS")
+		xrayDaemonAddr := "127.0.0.1:2000"
+		if os.Getenv("AWS_XRAY_DAEMON_ADDRESS") != "" {
+			xrayDaemonAddr = os.Getenv("AWS_XRAY_DAEMON_ADDRESS")
+		}
+		xray.Configure(xray.Config{
+			DaemonAddr:     xrayDaemonAddr,
+			ServiceVersion: "1.2.3",
+		})
 	}
-	xray.Configure(xray.Config{
-		DaemonAddr:     xrayDaemonAddr,
-		ServiceVersion: "1.2.3",
-	})
 
 	// -----------------------------
 
@@ -45,11 +46,19 @@ func main() {
 }
 
 func handleTracingAndError(c *gin.Context) {
-	// Create a segment for tracing in AWS X-Ray
-	_, seg := xray.BeginSegment(context.Background(), "go-gin")
-	c.Next()
-	// Close the segment after processing the request
-	seg.Close(nil)
+	if os.Getenv("AWS_XRAY_SDK_DISABLED") == "FALSE" {
+		segmentName := "go-gin"
+		if os.Getenv("AWS_XRAY_SEGMENT_NAME_SUFFIX") != "" {
+			segmentName = "go-gin-" + os.Getenv("AWS_XRAY_SEGMENT_NAME_SUFFIX")
+		}
+		// Create a segment for tracing in AWS X-Ray
+		_, seg := xray.BeginSegment(context.Background(), segmentName)
+		c.Next()
+		// Close the segment after processing the request
+		seg.Close(nil)
+	} else {
+		c.Next()
+	}
 
 	for _, err := range c.Errors {
 		log.Println(err)
