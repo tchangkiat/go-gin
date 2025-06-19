@@ -146,9 +146,7 @@ func proxyRequest(c *gin.Context) {
 		// -----------------------------
 		ctx, _ := c.Get("xray-context")
 		xrayCtx := ctx.(context.Context)
-		_, subSeg := xray.BeginSubsegment(xrayCtx, "proxy-request")
 		resp, _ = ctxhttp.Get(xrayCtx, xray.Client(nil), url)
-		subSeg.Close(nil)
 	} else {
 		resp, _ = http.Get(url)
 	}
