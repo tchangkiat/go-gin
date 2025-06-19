@@ -47,9 +47,9 @@ func main() {
 
 func handleTracingAndError(c *gin.Context) {
 	if os.Getenv("AWS_XRAY_SDK_DISABLED") == "FALSE" {
-		segmentName := "go-gin"
+		segmentName := "web-app"
 		if os.Getenv("AWS_XRAY_SEGMENT_NAME_SUFFIX") != "" {
-			segmentName = "go-gin-" + os.Getenv("AWS_XRAY_SEGMENT_NAME_SUFFIX")
+			segmentName = "web-app-" + os.Getenv("AWS_XRAY_SEGMENT_NAME_SUFFIX")
 		}
 		// Create a segment for tracing in AWS X-Ray
 		xrayCtx, seg := xray.BeginSegment(context.Background(), segmentName)
