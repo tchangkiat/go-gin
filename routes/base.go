@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"go-gin/middleware"
 	"net/http"
 	"os"
 	"strconv"
@@ -25,6 +26,10 @@ type PathHandler struct {
 }
 
 func Base(router *gin.Engine) {
+	app_name := "web-app"
+	if os.Getenv("AWS_XRAY_APP_NAME") != "" {
+		app_name = os.Getenv("AWS_XRAY_APP_NAME")
+	}
 	// Add paths with prefixes. Use case: handle traffic from multiple load balancer paths but routing to the same service
 	pathPrefixes := []string{"/"}
 	if os.Getenv("PATH_PREFIXES") != "" {
@@ -32,11 +37,11 @@ func Base(router *gin.Engine) {
 	}
 	fmt.Println(os.Getenv("PATH_PREFIXES"))
 	for _, pathPrefix := range pathPrefixes {
-		base := router.Group(pathPrefix)
+		base := router.Group(pathPrefix, middleware.Trace(xray.NewFixedSegmentNamer(app_name)))
 		{
-			base.GET("/fib", fibonacci)
-			base.GET("/req", proxyRequest)
-			base.GET("/", getSysInfo)
+			base.GET("/fib", middleware.Trace(xray.NewFixedSegmentNamer("fibonacci")), fibonacci)
+			base.GET("/req", middleware.Trace(xray.NewFixedSegmentNamer("proxy-request")), proxyRequest)
+			base.GET("/", middleware.Trace(xray.NewFixedSegmentNamer("system-information")), getSysInfo)
 		}
 	}
 }
