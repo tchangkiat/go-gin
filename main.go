@@ -44,7 +44,7 @@ func handleTracingAndError(c *gin.Context) {
 		// Create a segment for tracing in AWS X-Ray
 		traceHeader := header.FromString(c.Request.Header.Get("x-amzn-trace-id"))
 		xrayCtx, seg := xray.NewSegmentFromHeader(c.Request.Context(), "web-app", c.Request, traceHeader)
-		c.Set("xray-context", xrayCtx)
+		c.Request = c.Request.WithContext(xrayCtx)
 		c.Next()
 		// Close the segment after processing the request
 		seg.Close(nil)

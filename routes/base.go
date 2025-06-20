@@ -2,7 +2,6 @@ package routes
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -144,9 +143,7 @@ func proxyRequest(c *gin.Context) {
 		// -----------------------------
 		// AWS X-Ray
 		// -----------------------------
-		ctx, _ := c.Get("xray-context")
-		xrayCtx := ctx.(context.Context)
-		resp, _ = ctxhttp.Get(xrayCtx, xray.Client(nil), url)
+		resp, _ = ctxhttp.Get(c.Request.Context(), xray.Client(nil), url)
 	} else {
 		resp, _ = http.Get(url)
 	}
