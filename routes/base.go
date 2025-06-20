@@ -39,9 +39,9 @@ func Base(router *gin.Engine) {
 	for _, pathPrefix := range pathPrefixes {
 		base := router.Group(pathPrefix, middleware.Trace(xray.NewFixedSegmentNamer(app_name)))
 		{
-			base.GET("/fib", middleware.Trace(xray.NewFixedSegmentNamer("fibonacci")), fibonacci)
-			base.GET("/req", middleware.Trace(xray.NewFixedSegmentNamer("proxy-request")), proxyRequest)
-			base.GET("/", middleware.Trace(xray.NewFixedSegmentNamer("system-information")), getSysInfo)
+			base.GET("/fib", fibonacci)
+			base.GET("/req", proxyRequest)
+			base.GET("/", getSysInfo)
 		}
 	}
 }

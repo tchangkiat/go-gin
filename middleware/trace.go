@@ -1,4 +1,4 @@
-// Adapated from https://github.com/oroshnivskyy/go-gin-aws-x-ray/blob/master/xray/middleware.go
+// Adapted from https://github.com/oroshnivskyy/go-gin-aws-x-ray/blob/master/xray/middleware.go
 
 package middleware
 
