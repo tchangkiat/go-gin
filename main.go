@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net/http"
 
@@ -38,28 +37,15 @@ func main() {
 	// -----------------------------
 
 	r := gin.Default()
-	r.Use(handleTracingAndError)
+	r.Use(handleError)
 
 	routes.Base(r)
 
 	r.Run(":8000")
 }
 
-func handleTracingAndError(c *gin.Context) {
-	if os.Getenv("AWS_XRAY_SDK_DISABLED") == "FALSE" {
-		segmentName := "web-app"
-		if os.Getenv("AWS_XRAY_SEGMENT_NAME") != "" {
-			segmentName = os.Getenv("AWS_XRAY_SEGMENT_NAME")
-		}
-		// Create a segment for tracing in AWS X-Ray
-		xrayCtx, seg := xray.BeginSegment(context.Background(), segmentName)
-		c.Set("xray-context", xrayCtx)
-		c.Next()
-		// Close the segment after processing the request
-		seg.Close(nil)
-	} else {
-		c.Next()
-	}
+func handleError(c *gin.Context) {
+	c.Next()
 
 	for _, err := range c.Errors {
 		log.Println(err)
