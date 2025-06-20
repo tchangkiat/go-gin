@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-xray-sdk-go/v2 v2.0.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/shirou/gopsutil/v4 v4.25.5
+	golang.org/x/net v0.40.0
 )
 
 require (
@@ -42,7 +43,6 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/arch v0.17.0 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
-	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect

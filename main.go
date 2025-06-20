@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net/http"
 
@@ -10,6 +9,7 @@ import (
 	"go-gin/routes"
 
 	"github.com/aws/aws-xray-sdk-go/v2/awsplugins/ec2"
+	"github.com/aws/aws-xray-sdk-go/v2/header"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/gin-gonic/gin"
 )
@@ -42,7 +42,8 @@ func main() {
 func handleTracingAndError(c *gin.Context) {
 	if os.Getenv("AWS_XRAY_SDK_DISABLED") == "FALSE" {
 		// Create a segment for tracing in AWS X-Ray
-		xrayCtx, seg := xray.BeginSegment(context.Background(), "web-app")
+		traceHeader := header.FromString(c.Request.Header.Get("x-amzn-trace-id"))
+		xrayCtx, seg := xray.NewSegmentFromHeader(c.Request.Context(), "web-app", c.Request, traceHeader)
 		c.Set("xray-context", xrayCtx)
 		c.Next()
 		// Close the segment after processing the request
