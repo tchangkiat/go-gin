@@ -13,7 +13,6 @@ import (
 
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/gin-gonic/gin"
-	xrayGoGin "github.com/oroshnivskyy/go-gin-aws-x-ray/xray"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/host"
 	"github.com/shirou/gopsutil/v4/mem"
@@ -34,7 +33,7 @@ func Base(router *gin.Engine) {
 	}
 	fmt.Println(os.Getenv("PATH_PREFIXES"))
 	for _, pathPrefix := range pathPrefixes {
-		base := router.Group(pathPrefix, xrayGoGin.Middleware(xray.NewFixedSegmentNamer("web-app")))
+		base := router.Group(pathPrefix)
 		{
 			base.GET("/fib", fibonacci)
 			base.GET("/req", proxyRequest)
@@ -147,7 +146,7 @@ func proxyRequest(c *gin.Context) {
 		// -----------------------------
 		ctx, _ := c.Get("xray-context")
 		xrayCtx := ctx.(context.Context)
-		resp, _ = ctxhttp.Get(xrayCtx, xray.Client(http.DefaultClient), url)
+		resp, _ = ctxhttp.Get(xrayCtx, xray.Client(nil), url)
 	} else {
 		resp, _ = http.Get(url)
 	}
