@@ -16,7 +16,7 @@ import (
 
 func main() {
 	// -----------------------------
-	// AWS X-Ray
+	// AWS X-Ray Configuration
 	// -----------------------------
 
 	if os.Getenv("AWS_XRAY_SDK_DISABLED") == "FALSE" {
@@ -24,13 +24,7 @@ func main() {
 		if os.Getenv("GIN_MODE") == "release" {
 			ec2.Init()
 		}
-
-		xrayDaemonAddr := "127.0.0.1:2100"
-		if os.Getenv("AWS_XRAY_DAEMON_ADDRESS") != "" {
-			xrayDaemonAddr = os.Getenv("AWS_XRAY_DAEMON_ADDRESS")
-		}
 		xray.Configure(xray.Config{
-			DaemonAddr:     xrayDaemonAddr,
 			ServiceVersion: "1.0.0",
 		})
 	}
@@ -47,12 +41,8 @@ func main() {
 
 func handleTracingAndError(c *gin.Context) {
 	if os.Getenv("AWS_XRAY_SDK_DISABLED") == "FALSE" {
-		segmentName := "web-app"
-		if os.Getenv("AWS_XRAY_SEGMENT_NAME") != "" {
-			segmentName = os.Getenv("AWS_XRAY_SEGMENT_NAME")
-		}
 		// Create a segment for tracing in AWS X-Ray
-		xrayCtx, seg := xray.BeginSegment(context.Background(), segmentName)
+		xrayCtx, seg := xray.BeginSegment(context.Background(), "web-app")
 		c.Set("xray-context", xrayCtx)
 		c.Next()
 		// Close the segment after processing the request
