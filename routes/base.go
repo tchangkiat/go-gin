@@ -7,9 +7,7 @@ import (
 	"go-gin/middleware"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/gin-gonic/gin"
@@ -20,11 +18,6 @@ import (
 	"golang.org/x/net/context/ctxhttp"
 )
 
-type PathHandler struct {
-	Path    string
-	Handler gin.HandlerFunc
-}
-
 func Base(router *gin.Engine) {
 	app_name := "web-app"
 	if os.Getenv("AWS_XRAY_APP_NAME") != "" {
@@ -33,13 +26,11 @@ func Base(router *gin.Engine) {
 	// Add paths with prefixes. Use case: handle traffic from multiple load balancer paths but routing to the same service
 	pathPrefixes := []string{"/"}
 	if os.Getenv("PATH_PREFIXES") != "" {
-		pathPrefixes = append(strings.Split(os.Getenv("PATH_PREFIXES"), `,`), []string{"/"}...)
+		pathPrefixes = append(strings.Split(os.Getenv("PATH_PREFIXES"), `,`), pathPrefixes...)
 	}
-	fmt.Println(os.Getenv("PATH_PREFIXES"))
 	for _, pathPrefix := range pathPrefixes {
 		base := router.Group(pathPrefix, middleware.Trace(xray.NewFixedSegmentNamer(app_name)))
 		{
-			base.GET("/fib", fibonacci)
 			base.GET("/req", proxyRequest)
 			base.GET("/", getSysInfo)
 		}
@@ -97,31 +88,6 @@ func getSysInfo(c *gin.Context) {
 		"memory":  memFilteredInfo,
 		"network": netInterfaceFilteredInfo,
 	})
-}
-
-// Fibonacci sequence without memoization
-func fibonacci(c *gin.Context) {
-	n_str := c.Query("n")
-	n, _ := strconv.Atoi(n_str)
-	hostInfo, _ := host.Info()
-
-	start := time.Now()
-	fib_result := fib(n)
-	elapsed := time.Since(start)
-
-	c.JSON(http.StatusOK, gin.H{
-		"architecture": hostInfo.KernelArch,
-		"fibonacci":    gin.H{"n": n_str, "result": fib_result},
-		"timeTaken":    elapsed.String(),
-	})
-}
-
-// Helper function for Fibonacci sequence
-func fib(n int) int {
-	if n <= 1 {
-		return n
-	}
-	return fib(n-1) + fib(n-2)
 }
 
 // Proxy request to a URL

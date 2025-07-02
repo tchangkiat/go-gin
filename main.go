@@ -32,6 +32,7 @@ func main() {
 	r.Use(middleware.ErrorHandling)
 
 	routes.Base(r)
+	routes.Perf(r)
 
 	r.Run(":8000")
 }
