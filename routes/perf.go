@@ -41,9 +41,8 @@ func fibonacci(c *gin.Context) {
 	elapsed := time.Since(start)
 
 	c.JSON(http.StatusOK, gin.H{
-		"architecture": hostInfo.KernelArch,
-		"fibonacci":    gin.H{"n": n_str, "result": fib_result},
-		"timeTaken":    elapsed.String(),
+		"arch":      hostInfo.KernelArch,
+		"fibonacci": gin.H{"n": n_str, "result": fib_result, "timeTaken": elapsed.String()},
 	})
 }
 
@@ -94,12 +93,10 @@ func SingleThreadMultiply(a, b *Matrix) (*Matrix, error) {
 	result := NewMatrix(a.Rows, b.Cols)
 
 	for i := 0; i < a.Rows; i++ {
-		for j := 0; j < b.Cols; j++ {
-			sum := 0.0
-			for k := 0; k < a.Cols; k++ {
-				sum += a.Data[i][k] * b.Data[k][j]
+		for k := 0; k < a.Cols; k++ {
+			for j := 0; j < b.Cols; j++ {
+				result.Data[i][j] += a.Data[i][k] * b.Data[k][j]
 			}
-			result.Data[i][j] = sum
 		}
 	}
 
@@ -166,8 +163,6 @@ func matrixMultiplication(c *gin.Context) {
 	// Matrix size
 	size, _ := strconv.Atoi(size_str)
 
-	fmt.Printf("\n=== Testing with %dx%d matrices ===\n", size, size)
-
 	a := NewMatrix(size, size)
 	b := NewMatrix(size, size)
 
@@ -191,5 +186,5 @@ func matrixMultiplication(c *gin.Context) {
 	multiTime := time.Since(start)
 
 	hostInfo, _ := host.Info()
-	c.JSON(http.StatusOK, gin.H{"architecture": hostInfo.KernelArch, "cpu": runtime.NumCPU(), "matrixMultiplication": gin.H{"singleThreaded": singleTime.String(), "multiThreaded": multiTime.String(), "difference": float64(singleTime) / float64(multiTime)}})
+	c.JSON(http.StatusOK, gin.H{"arch": hostInfo.KernelArch, "matrixMultiplication": gin.H{"size": size, "timeTaken": gin.H{"singleThreaded": singleTime.String(), "multiThreaded": multiTime.String()}}})
 }
