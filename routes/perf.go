@@ -54,32 +54,36 @@ func fib(n int) int {
 	return fib(n-1) + fib(n-2)
 }
 
-// Matrix represents a 2D matrix
+// Matrix represents a 2D matrix with contiguous memory layout
 type Matrix struct {
 	Rows, Cols int
-	Data       [][]float64
+	Data       []float64
 }
 
-// NewMatrix creates a new matrix with given dimensions
+// Get returns matrix element at (i,j)
+func (m *Matrix) Get(i, j int) float64 {
+	return m.Data[i*m.Cols+j]
+}
+
+// Set sets matrix element at (i,j)
+func (m *Matrix) Set(i, j int, val float64) {
+	m.Data[i*m.Cols+j] = val
+}
+
+// NewMatrix creates a new matrix with contiguous memory layout
 func NewMatrix(rows, cols int) *Matrix {
-	m := &Matrix{
+	return &Matrix{
 		Rows: rows,
 		Cols: cols,
-		Data: make([][]float64, rows),
+		Data: make([]float64, rows*cols),
 	}
-	for i := range m.Data {
-		m.Data[i] = make([]float64, cols)
-	}
-	return m
 }
 
 // FillRandom fills the matrix with random values between 0 and 1
 func (m *Matrix) FillRandom() {
 	rand.Seed(time.Now().UnixNano())
-	for i := 0; i < m.Rows; i++ {
-		for j := 0; j < m.Cols; j++ {
-			m.Data[i][j] = rand.Float64()
-		}
+	for i := 0; i < len(m.Data); i++ {
+		m.Data[i] = rand.Float64()
 	}
 }
 
@@ -92,10 +96,12 @@ func SingleThreadMultiply(a, b *Matrix) (*Matrix, error) {
 
 	result := NewMatrix(a.Rows, b.Cols)
 
+	// Cache-friendly ikj loop order for ARM processors
 	for i := 0; i < a.Rows; i++ {
 		for k := 0; k < a.Cols; k++ {
+			aVal := a.Get(i, k)
 			for j := 0; j < b.Cols; j++ {
-				result.Data[i][j] += a.Data[i][k] * b.Data[k][j]
+				result.Set(i, j, result.Get(i, j)+aVal*b.Get(k, j))
 			}
 		}
 	}
@@ -124,16 +130,15 @@ func MultiThreadMultiply(a, b *Matrix) (*Matrix, error) {
 		numCPU = a.Rows
 	}
 
-	// Function to process a subset of rows
+	// Function to process a subset of rows with cache-friendly access
 	worker := func(startRow, endRow int) {
 		defer wg.Done()
 		for i := startRow; i < endRow; i++ {
-			for j := 0; j < b.Cols; j++ {
-				sum := 0.0
-				for k := 0; k < a.Cols; k++ {
-					sum += a.Data[i][k] * b.Data[k][j]
+			for k := 0; k < a.Cols; k++ {
+				aVal := a.Get(i, k)
+				for j := 0; j < b.Cols; j++ {
+					result.Set(i, j, result.Get(i, j)+aVal*b.Get(k, j))
 				}
-				result.Data[i][j] = sum
 			}
 		}
 	}
