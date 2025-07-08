@@ -33,6 +33,7 @@ func main() {
 
 	routes.Base(r)
 	routes.Perf(r)
+	routes.BadPerf(r)
 
 	r.Run(":8000")
 }

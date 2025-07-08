@@ -15,69 +15,88 @@ import (
 	"github.com/shirou/gopsutil/v4/host"
 )
 
-// Endpoints for operations that are optimized
-func Perf(router *gin.Engine) {
+// Endpoints for operations that are not optimized
+func BadPerf(router *gin.Engine) {
 	// Add paths with prefixes. Use case: handle traffic from multiple load balancer paths but routing to the same service
 	pathPrefixes := []string{""}
 	if os.Getenv("PATH_PREFIXES") != "" {
 		pathPrefixes = append(strings.Split(os.Getenv("PATH_PREFIXES"), `,`), pathPrefixes...)
 	}
 	for _, pathPrefix := range pathPrefixes {
-		base := router.Group(pathPrefix + "/perf")
+		base := router.Group(pathPrefix + "/badperf")
 		{
-			base.GET("/mm", matrixMultiplication)
+			base.GET("/fib", fibonacci)
+			base.GET("/mm", matrixMultiplicationV1)
 		}
 	}
 }
 
-// Matrix represents a 2D matrix with contiguous memory layout
-type Matrix struct {
+// Fibonacci sequence without memoization
+func fibonacci(c *gin.Context) {
+	n_str := c.Query("n")
+	n, _ := strconv.Atoi(n_str)
+	hostInfo, _ := host.Info()
+
+	start := time.Now()
+	fib_result := fib(n)
+	elapsed := time.Since(start)
+
+	c.JSON(http.StatusOK, gin.H{
+		"arch":      hostInfo.KernelArch,
+		"fibonacci": gin.H{"n": n_str, "result": fib_result, "timeTaken": elapsed.String()},
+	})
+}
+
+// Helper function for Fibonacci sequence
+func fib(n int) int {
+	if n <= 1 {
+		return n
+	}
+	return fib(n-1) + fib(n-2)
+}
+
+// Matrix represents a 2D matrix
+type MatrixV1 struct {
 	Rows, Cols int
-	Data       []float64
+	Data       [][]float64
 }
 
-// Get returns matrix element at (i,j)
-func (m *Matrix) Get(i, j int) float64 {
-	return m.Data[i*m.Cols+j]
-}
-
-// Set sets matrix element at (i,j)
-func (m *Matrix) Set(i, j int, val float64) {
-	m.Data[i*m.Cols+j] = val
-}
-
-// NewMatrix creates a new matrix with contiguous memory layout
-func NewMatrix(rows, cols int) *Matrix {
-	return &Matrix{
+// NewMatrix creates a new matrix with given dimensions
+func NewMatrixV1(rows, cols int) *MatrixV1 {
+	m := &MatrixV1{
 		Rows: rows,
 		Cols: cols,
-		Data: make([]float64, rows*cols),
+		Data: make([][]float64, rows),
 	}
+	for i := range m.Data {
+		m.Data[i] = make([]float64, cols)
+	}
+	return m
 }
 
 // FillRandom fills the matrix with random values between 0 and 1
-func (m *Matrix) FillRandom() {
+func (m *MatrixV1) FillRandom() {
 	rand.Seed(time.Now().UnixNano())
-	for i := 0; i < len(m.Data); i++ {
-		m.Data[i] = rand.Float64()
+	for i := 0; i < m.Rows; i++ {
+		for j := 0; j < m.Cols; j++ {
+			m.Data[i][j] = rand.Float64()
+		}
 	}
 }
 
 // SingleThreadMultiply performs matrix multiplication using a single thread
-func SingleThreadMultiply(a, b *Matrix) (*Matrix, error) {
+func SingleThreadMultiplyV1(a, b *MatrixV1) (*MatrixV1, error) {
 	if a.Cols != b.Rows {
 		return nil, fmt.Errorf("matrix dimensions don't match for multiplication: a(%dx%d) * b(%dx%d)",
 			a.Rows, a.Cols, b.Rows, b.Cols)
 	}
 
-	result := NewMatrix(a.Rows, b.Cols)
+	result := NewMatrixV1(a.Rows, b.Cols)
 
-	// Cache-friendly ikj loop order for ARM processors
 	for i := 0; i < a.Rows; i++ {
 		for k := 0; k < a.Cols; k++ {
-			aVal := a.Get(i, k)
 			for j := 0; j < b.Cols; j++ {
-				result.Set(i, j, result.Get(i, j)+aVal*b.Get(k, j))
+				result.Data[i][j] += a.Data[i][k] * b.Data[k][j]
 			}
 		}
 	}
@@ -86,7 +105,7 @@ func SingleThreadMultiply(a, b *Matrix) (*Matrix, error) {
 }
 
 // MultiThreadMultiply performs matrix multiplication using multiple threads
-func MultiThreadMultiply(a, b *Matrix) (*Matrix, error) {
+func MultiThreadMultiplyV1(a, b *MatrixV1) (*MatrixV1, error) {
 	if a.Cols != b.Rows {
 		return nil, fmt.Errorf("matrix dimensions don't match for multiplication: a(%dx%d) * b(%dx%d)",
 			a.Rows, a.Cols, b.Rows, b.Cols)
@@ -95,7 +114,7 @@ func MultiThreadMultiply(a, b *Matrix) (*Matrix, error) {
 	numCPU := runtime.NumCPU()
 	runtime.GOMAXPROCS(numCPU)
 
-	result := NewMatrix(a.Rows, b.Cols)
+	result := NewMatrixV1(a.Rows, b.Cols)
 	var wg sync.WaitGroup
 
 	// Calculate how many rows each goroutine should process
@@ -106,15 +125,16 @@ func MultiThreadMultiply(a, b *Matrix) (*Matrix, error) {
 		numCPU = a.Rows
 	}
 
-	// Function to process a subset of rows with cache-friendly access
+	// Function to process a subset of rows
 	worker := func(startRow, endRow int) {
 		defer wg.Done()
 		for i := startRow; i < endRow; i++ {
-			for k := 0; k < a.Cols; k++ {
-				aVal := a.Get(i, k)
-				for j := 0; j < b.Cols; j++ {
-					result.Set(i, j, result.Get(i, j)+aVal*b.Get(k, j))
+			for j := 0; j < b.Cols; j++ {
+				sum := 0.0
+				for k := 0; k < a.Cols; k++ {
+					sum += a.Data[i][k] * b.Data[k][j]
 				}
+				result.Data[i][j] = sum
 			}
 		}
 	}
@@ -138,21 +158,21 @@ func MultiThreadMultiply(a, b *Matrix) (*Matrix, error) {
 	return result, nil
 }
 
-func matrixMultiplication(c *gin.Context) {
+func matrixMultiplicationV1(c *gin.Context) {
 	size_str := c.Query("size")
 
 	// Matrix size
 	size, _ := strconv.Atoi(size_str)
 
-	a := NewMatrix(size, size)
-	b := NewMatrix(size, size)
+	a := NewMatrixV1(size, size)
+	b := NewMatrixV1(size, size)
 
 	a.FillRandom()
 	b.FillRandom()
 
 	// Single thread
 	start := time.Now()
-	_, err := SingleThreadMultiply(a, b)
+	_, err := SingleThreadMultiplyV1(a, b)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}
@@ -160,7 +180,7 @@ func matrixMultiplication(c *gin.Context) {
 
 	// Multi thread
 	start = time.Now()
-	_, err = MultiThreadMultiply(a, b)
+	_, err = MultiThreadMultiplyV1(a, b)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}
