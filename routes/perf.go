@@ -63,7 +63,7 @@ func (m *Matrix) FillRandom() {
 	}
 }
 
-// SingleThreadMultiply performs matrix multiplication using a single thread
+// SingleThreadMultiply performs matrix multiplication using a single thread with Graviton optimizations
 func SingleThreadMultiply(a, b *Matrix) (*Matrix, error) {
 	if a.Cols != b.Rows {
 		return nil, fmt.Errorf("matrix dimensions don't match for multiplication: a(%dx%d) * b(%dx%d)",
@@ -72,12 +72,38 @@ func SingleThreadMultiply(a, b *Matrix) (*Matrix, error) {
 
 	result := NewMatrix(a.Rows, b.Cols)
 
-	// Cache-friendly ikj loop order for ARM processors
-	for i := 0; i < a.Rows; i++ {
-		for k := 0; k < a.Cols; k++ {
-			aVal := a.Get(i, k)
-			for j := 0; j < b.Cols; j++ {
-				result.Set(i, j, result.Get(i, j)+aVal*b.Get(k, j))
+	// Block size optimized for Graviton's 64KB L1 cache
+	blockSize := 64
+	if a.Rows < 64 {
+		blockSize = a.Rows
+	}
+
+	// Blocked matrix multiplication for better cache utilization
+	for ii := 0; ii < a.Rows; ii += blockSize {
+		for kk := 0; kk < a.Cols; kk += blockSize {
+			for jj := 0; jj < b.Cols; jj += blockSize {
+				// Process block
+				iEnd := ii + blockSize
+				if iEnd > a.Rows {
+					iEnd = a.Rows
+				}
+				kEnd := kk + blockSize
+				if kEnd > a.Cols {
+					kEnd = a.Cols
+				}
+				jEnd := jj + blockSize
+				if jEnd > b.Cols {
+					jEnd = b.Cols
+				}
+
+				for i := ii; i < iEnd; i++ {
+					for k := kk; k < kEnd; k++ {
+						aVal := a.Data[i*a.Cols+k]
+						for j := jj; j < jEnd; j++ {
+							result.Data[i*result.Cols+j] += aVal * b.Data[k*b.Cols+j]
+						}
+					}
+				}
 			}
 		}
 	}
@@ -85,7 +111,7 @@ func SingleThreadMultiply(a, b *Matrix) (*Matrix, error) {
 	return result, nil
 }
 
-// MultiThreadMultiply performs matrix multiplication using multiple threads
+// MultiThreadMultiply performs matrix multiplication using multiple threads optimized for Graviton
 func MultiThreadMultiply(a, b *Matrix) (*Matrix, error) {
 	if a.Cols != b.Rows {
 		return nil, fmt.Errorf("matrix dimensions don't match for multiplication: a(%dx%d) * b(%dx%d)",
@@ -93,48 +119,64 @@ func MultiThreadMultiply(a, b *Matrix) (*Matrix, error) {
 	}
 
 	numCPU := runtime.NumCPU()
-	runtime.GOMAXPROCS(numCPU)
-
 	result := NewMatrix(a.Rows, b.Cols)
 	var wg sync.WaitGroup
 
-	// Calculate how many rows each goroutine should process
-	rowsPerThread := a.Rows / numCPU
-	if rowsPerThread == 0 {
-		// If we have more CPUs than rows, just use one goroutine per row
-		rowsPerThread = 1
-		numCPU = a.Rows
+	// Block size optimized for Graviton's cache hierarchy
+	blockSize := 64
+	if a.Rows < 64 {
+		blockSize = a.Rows
 	}
 
-	// Function to process a subset of rows with cache-friendly access
-	worker := func(startRow, endRow int) {
+	// Calculate blocks per thread for better load balancing
+	totalBlocks := (a.Rows + blockSize - 1) / blockSize
+	blocksPerThread := (totalBlocks + numCPU - 1) / numCPU
+
+	worker := func(threadID int) {
 		defer wg.Done()
-		for i := startRow; i < endRow; i++ {
-			for k := 0; k < a.Cols; k++ {
-				aVal := a.Get(i, k)
-				for j := 0; j < b.Cols; j++ {
-					result.Set(i, j, result.Get(i, j)+aVal*b.Get(k, j))
+		startBlock := threadID * blocksPerThread
+		endBlock := startBlock + blocksPerThread
+		if endBlock > totalBlocks {
+			endBlock = totalBlocks
+		}
+
+		for blockI := startBlock; blockI < endBlock; blockI++ {
+			ii := blockI * blockSize
+			iEnd := ii + blockSize
+			if iEnd > a.Rows {
+				iEnd = a.Rows
+			}
+
+			for kk := 0; kk < a.Cols; kk += blockSize {
+				for jj := 0; jj < b.Cols; jj += blockSize {
+					kEnd := kk + blockSize
+					if kEnd > a.Cols {
+						kEnd = a.Cols
+					}
+					jEnd := jj + blockSize
+					if jEnd > b.Cols {
+						jEnd = b.Cols
+					}
+
+					for i := ii; i < iEnd; i++ {
+						for k := kk; k < kEnd; k++ {
+							aVal := a.Data[i*a.Cols+k]
+							for j := jj; j < jEnd; j++ {
+								result.Data[i*result.Cols+j] += aVal * b.Data[k*b.Cols+j]
+							}
+						}
+					}
 				}
 			}
 		}
 	}
 
-	// Launch workers
 	for t := 0; t < numCPU; t++ {
-		startRow := t * rowsPerThread
-		endRow := startRow + rowsPerThread
-		// Handle the case when rows don't divide evenly among threads
-		if t == numCPU-1 {
-			endRow = a.Rows
-		}
-
 		wg.Add(1)
-		go worker(startRow, endRow)
+		go worker(t)
 	}
 
-	// Wait for all calculations to complete
 	wg.Wait()
-
 	return result, nil
 }
 
