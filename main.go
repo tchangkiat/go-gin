@@ -6,6 +6,8 @@ import (
 	"go-gin/middleware"
 	"go-gin/routes"
 
+	"github.com/gin-contrib/pprof"
+
 	"github.com/aws/aws-xray-sdk-go/v2/awsplugins/ec2"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/gin-gonic/gin"
@@ -34,6 +36,8 @@ func main() {
 	routes.Base(r)
 	routes.Perf(r)
 	routes.BadPerf(r)
+
+	pprof.Register(r)
 
 	r.Run(":8000")
 }
