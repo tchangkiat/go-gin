@@ -34,9 +34,8 @@ func main() {
 	r.Use(middleware.ErrorHandling)
 
 	routes.Base(r)
-	//routes.Perf(r)
+	routes.Perf(r)
 	routes.BadPerf(r)
-	routes.MM(r)
 
 	pprof.Register(r)
 
