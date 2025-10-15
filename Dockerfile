@@ -1,7 +1,7 @@
 ############################
 # STEP 1 Build App
 ############################
-FROM golang:alpine AS build
+FROM public.ecr.aws/docker/library/golang:alpine AS build
 
 RUN apk update && apk add --no-cache 'git'
 
@@ -16,7 +16,7 @@ RUN go build -o /app/go-gin
 ############################
 # STEP 2 Build Image
 ############################
-FROM alpine:latest
+FROM public.ecr.aws/docker/library/alpine:latest
 
 WORKDIR /app
 COPY --from=build /app/go-gin .
