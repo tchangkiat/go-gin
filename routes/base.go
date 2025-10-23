@@ -4,32 +4,25 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"go-gin/middleware"
 	"net/http"
 	"os"
 	"strings"
 
-	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/host"
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/net"
-	"golang.org/x/net/context/ctxhttp"
 )
 
 func Base(router *gin.Engine) {
-	app_name := "web-app"
-	if os.Getenv("AWS_XRAY_APP_NAME") != "" {
-		app_name = os.Getenv("AWS_XRAY_APP_NAME")
-	}
 	// Add paths with prefixes. Use case: handle traffic from multiple load balancer paths but routing to the same service
 	pathPrefixes := []string{"/"}
 	if os.Getenv("PATH_PREFIXES") != "" {
 		pathPrefixes = append(strings.Split(os.Getenv("PATH_PREFIXES"), `,`), pathPrefixes...)
 	}
 	for _, pathPrefix := range pathPrefixes {
-		base := router.Group(pathPrefix, middleware.Trace(xray.NewFixedSegmentNamer(app_name)))
+		base := router.Group(pathPrefix)
 		{
 			base.GET("/req", proxyRequest)
 			base.GET("/", getSysInfo)
@@ -110,14 +103,7 @@ func proxyRequest(c *gin.Context) {
 	}
 	url := protocol + "://" + host + ":" + port + path
 	resp := &http.Response{}
-	if os.Getenv("AWS_XRAY_SDK_DISABLED") == "FALSE" {
-		// -----------------------------
-		// AWS X-Ray
-		// -----------------------------
-		resp, _ = ctxhttp.Get(c.Request.Context(), xray.Client(nil), url)
-	} else {
-		resp, _ = http.Get(url)
-	}
+	resp, _ = http.Get(url)
 	defer resp.Body.Close()
 	scanner := bufio.NewScanner(resp.Body)
 	var jsonResp map[string]interface{}
